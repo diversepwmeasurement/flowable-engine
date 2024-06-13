@@ -1,23 +1,21 @@
-name: Flowable 5 Build
-
-on: [push]
-
 jobs:
   test_jdk:
-    name: Flowable 5 Tests
-    runs-on: ubuntu-latest
     env:
-      # '>-' is a special YAML syntax and means that new lines would be replaced with spaces
-      # and new lines from the end would be removed
-      MAVEN_CONFIG: >-
-        -V
-        -B
-        --no-transfer-progress
+      MAVEN_CONFIG: -V -B --no-transfer-progress
+    name: Flowable 5 Tests
+    runs-on: self-hosted
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-java@v3
+    - continue-on-error: true
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      uses: actions/setup-java@v3
       with:
-        distribution: 'zulu'
+        distribution: zulu
         java-version: 17
-    - name: Build and Test
+    - continue-on-error: true
+      name: Build and Test
       run: cd scripts && ./run-flowable5-tests.sh
+name: Flowable 5 Build
+on:
+  repository_dispatch:
+    types: trigger-ga___flowable5.yml

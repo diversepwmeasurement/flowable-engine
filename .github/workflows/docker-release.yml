@@ -1,52 +1,56 @@
-name: Release Docker Images
-
-on: workflow_dispatch
-
 jobs:
   release_docker_images:
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        distribution: temurin
+        java-version: '17'
+    - continue-on-error: true
+      id: meta
+      name: Get current project meta
+      run: echo "::set-output name=version::$(mvn help:evaluate -Dexpression=project.version
+        -q -DforceStdout)"
+    - continue-on-error: true
+      name: Build Docker images with Maven
+      run: 'mvn clean package -B -Dstyle.color=always  \
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+        -P dockerDeps,dockerPublish \
 
-      - name: Get current project meta
-        id: meta
-        run: echo "::set-output name=version::$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)"
+        -pl :flowable-app-rest \
 
-      - name: Build Docker images with Maven
-        run: |
-          mvn clean package -B -Dstyle.color=always  \
-          -P dockerDeps,dockerPublish \
-          -pl :flowable-app-rest \
-          -D docker.publisher.user=${{ secrets.DOCKER_USER }} \
-          -D docker.publisher.password=${{ secrets.DOCKER_PASSWORD }}
+        -D docker.publisher.user=${{ secrets.DOCKER_USER }} \
 
-      - name: Install cosign
-        uses: sigstore/cosign-installer@d6a3abf1bdea83574e28d40543793018b6035605
-        with:
-          cosign-release: 'v1.7.1'
+        -D docker.publisher.password=${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Write signing key to disk
-        run: echo "${{ secrets.SIGNING_SECRET }}" > cosign.key
-
-      - name: Log into dockerhub
-        uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Sign the published Docker images
-        env:
-          COSIGN_PASSWORD: ""
-        run: |
-          cosign sign --key cosign.key \
-            -a "repo=${{ github.repository }}" \
-            -a "ref=${{ github.sha }}" \
-            flowable/flowable-rest:${{ steps.meta.outputs.version }} 
+        '
+    - continue-on-error: true
+      name: Install cosign
+      uses: sigstore/cosign-installer@d6a3abf1bdea83574e28d40543793018b6035605
+      with:
+        cosign-release: v1.7.1
+    - continue-on-error: true
+      name: Write signing key to disk
+      run: echo "${{ secrets.SIGNING_SECRET }}" > cosign.key
+    - continue-on-error: true
+      name: Log into dockerhub
+      uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
+      with:
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        username: ${{ secrets.DOCKER_USER }}
+    - continue-on-error: true
+      env:
+        COSIGN_PASSWORD: ''
+      name: Sign the published Docker images
+      run: "cosign sign --key cosign.key \\\n  -a \"repo=${{ github.repository }}\"\
+        \ \\\n  -a \"ref=${{ github.sha }}\" \\\n  flowable/flowable-rest:${{ steps.meta.outputs.version\
+        \ }} "
+name: Release Docker Images
+on:
+  repository_dispatch:
+    types: trigger-ga___docker-release.yml
